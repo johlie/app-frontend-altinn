@@ -482,22 +482,6 @@ export function RepeatingGroupTable({
                         );
                       })}
 
-                      {components.map((component: ILayoutComponent) => {
-                        const childId =
-                          (component as any).baseComponentId || component.id;
-                        if (!tableHeaderComponents.includes(childId)) {
-                          return null;
-                        }
-                        return (
-                          <TableCell key={`${component.id}-${index}`}>
-                            <span>
-                              {index !== editIndex
-                                ? getFormDataForComponent(component, index)
-                                : null}
-                            </span>
-                          </TableCell>
-                        );
-                      })}
                       <TableCell
                         //align='left'
                         //style={{ width: '110px', padding: 0 }}
