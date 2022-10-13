@@ -41,6 +41,9 @@ export interface ILayoutGroup extends ILayoutCompBase<'Group'> {
   tableHeaders?: string[];
   edit?: IGroupEditProperties;
   panel?: IGroupPanel;
+  sortableColums?: string[];
+  pagination?: IGroupPagination;
+  selectableRows?: boolean;
 }
 
 export interface ILayoutCompPanelBase {
@@ -344,4 +347,8 @@ export interface SummaryDisplayProperties {
   hideChangeButton?: boolean;
   useComponentGrid?: boolean;
   hideBottomBorder?: boolean;
+}
+export interface IGroupPagination {
+  alternatives: number[];
+  default: number;
 }

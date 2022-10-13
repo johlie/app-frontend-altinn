@@ -1,15 +1,23 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 
+import {
+  Pagination,
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHeader,
+  TableRow,
+} from '@altinn/altinn-design-system';
 import {
   createTheme,
   Grid,
   IconButton,
   makeStyles,
-  TableCell,
-  TableRow,
   useMediaQuery,
 } from '@material-ui/core';
 import cn from 'classnames';
+import type { ChangeProps } from '@altinn/altinn-design-system';
 
 import { useAppDispatch } from 'src/common/hooks';
 import { RepeatingGroupsEditContainer } from 'src/features/form/containers/RepeatingGroupsEditContainer';
@@ -43,10 +51,6 @@ import type {
 import {
   AltinnMobileTable,
   AltinnMobileTableItem,
-  AltinnTable,
-  AltinnTableBody,
-  AltinnTableHeader,
-  AltinnTableRow,
 } from 'altinn-shared/components';
 import altinnAppTheme from 'altinn-shared/theme/altinnAppTheme';
 import { getLanguageFromKey, getTextResourceByKey } from 'altinn-shared/utils';
@@ -70,7 +74,7 @@ export interface IRepeatingGroupTableProps {
   layout: ILayout;
   validations: IValidations;
   editIndex: number;
-  setEditIndex: (index: number, forceValidation?: boolean) => void;
+  setEditIndex: (index: number) => void;
   onClickRemove: (groupIndex: number) => void;
   setMultiPageIndex?: (index: number) => void;
   multiPageIndex?: number;
@@ -210,19 +214,7 @@ function getEditButtonText(
     );
   }
 
-  return isEditing
-    ? getLanguageFromKey('general.save_and_close', language)
-    : getLanguageFromKey('general.edit_alt', language);
-}
-
-function getTableTitle(component: ILayoutComponent) {
-  if (component.textResourceBindings?.tableTitle) {
-    return component.textResourceBindings.tableTitle;
-  }
-  if (component.textResourceBindings?.title) {
-    return component.textResourceBindings.title;
-  }
-  return '';
+  return getLanguageFromKey('general.edit_alt', language);
 }
 
 export function RepeatingGroupTable({
@@ -252,23 +244,21 @@ export function RepeatingGroupTable({
 }: IRepeatingGroupTableProps): JSX.Element {
   const dispatch = useAppDispatch();
   const classes = useStyles();
-  const mobileView = useMediaQuery('(max-width:992px)'); // breakpoint on altinn-modal
-
-  const tableHeaderComponentIds =
-    container.tableHeaders ||
-    components.map((c) => c.baseComponentId || c.id) ||
-    [];
-
-  const componentsDeepCopy: ILayoutComponent[] = JSON.parse(
+  const renderComponents: ILayoutComponent[] = JSON.parse(
     JSON.stringify(components),
   );
-  const tableComponents = componentsDeepCopy.filter(
-    (component: ILayoutComponent) => {
-      const childId = component.baseComponentId || component.id;
-      return tableHeaderComponentIds.includes(childId);
-    },
-  );
-
+  const tableHeaderComponents =
+    container.tableHeaders ||
+    components.map((c) => (c as any).baseComponentId || c.id) ||
+    [];
+  const mobileView = useMediaQuery('(max-width:992px)'); // breakpoint on altinn-modal
+  const componentTitles: string[] = [];
+  renderComponents.forEach((component: ILayoutComponent) => {
+    const childId = (component as any).baseComponentId || component.id;
+    if (tableHeaderComponents.includes(childId)) {
+      componentTitles.push(component.textResourceBindings?.title || '');
+    }
+  });
   const showTableHeader =
     repeatingGroupIndex > -1 && !(repeatingGroupIndex == 0 && editIndex == 0);
 
@@ -294,6 +284,18 @@ export function RepeatingGroupTable({
     } else {
       setEditIndex(groupIndex);
     }
+  };
+  const [selected, setSelected] = useState('');
+  const handleChange = ({ selectedValue }: ChangeProps) => {
+    setSelected(selectedValue);
+  };
+  const [rowsPerPage, setRowsPerPage] = useState(container.pagination.default);
+  const [page, setPage] = useState(0);
+  const handleChangeRowsPerPage = (
+    event: React.ChangeEvent<HTMLSelectElement>,
+  ) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
 
   const handleSaveClick = () => {
@@ -358,11 +360,10 @@ export function RepeatingGroupTable({
     return (
       editIndex >= 0 && (
         <RepeatingGroupsEditContainer
+          repeatingGroupIndex={repeatingGroupIndex}
           className={classes.editContainerInTable}
           container={container}
           editIndex={editIndex}
-          setEditIndex={setEditIndex}
-          repeatingGroupIndex={repeatingGroupIndex}
           id={id}
           language={language}
           textResources={textResources}
@@ -372,7 +373,6 @@ export function RepeatingGroupTable({
           hideSaveButton={container.edit?.saveButton === false}
           multiPageIndex={multiPageIndex}
           setMultiPageIndex={setMultiPageIndex}
-          showSaveAndNextButton={container.edit?.saveAndNextButton === true}
         />
       )
     );
@@ -386,42 +386,45 @@ export function RepeatingGroupTable({
       id={`group-${id}`}
     >
       {!mobileView && (
-        <AltinnTable id={`group-${id}-table`}>
+        <Table
+          selectRows={container.selectableRows}
+          onChange={handleChange}
+          selectedValue={selected}
+        >
           {showTableHeader && (
-            <AltinnTableHeader
-              showBorder={editIndex !== 0}
-              id={`group-${id}-table-header`}
+            <TableHeader //id={`group-${id}-table-header`} showBorder={editIndex !== 0}
             >
               <TableRow>
-                {tableComponents.map((component: ILayoutComponent) => (
+                {componentTitles.map((title: string) => (
                   <TableCell
-                    align='left'
-                    key={component.id}
+                    //align='left'
+                    key={title}
                   >
-                    {getTextResource(getTableTitle(component), textResources)}
+                    {getTextResource(title, textResources)}
                   </TableCell>
                 ))}
-                <TableCell
-                  style={{ width: '150px', padding: 0, paddingRight: '10px' }}
+                <TableCell //style={{ width: '110px', padding: 0 }}
                 >
                   <span className={classes.visuallyHidden}>
                     {getLanguageFromKey('general.edit', language)}
                   </span>
                 </TableCell>
                 {!hideDeleteButton && (
-                  <TableCell style={{ width: '80px', padding: 0 }}>
+                  <TableCell //style={{ width: '80px', padding: 0 }}
+                  >
                     <span className={classes.visuallyHidden}>
                       {getLanguageFromKey('general.delete', language)}
                     </span>
                   </TableCell>
                 )}
               </TableRow>
-            </AltinnTableHeader>
+            </TableHeader>
           )}
-          <AltinnTableBody id={`group-${id}-table-body`}>
+          <TableBody>
             {repeatingGroupIndex >= 0 &&
-              [...Array(repeatingGroupIndex + 1)].map(
-                (_x: any, index: number) => {
+              [...Array(repeatingGroupIndex + 1)]
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((_x: any, index: number) => {
                   const rowHasErrors = repeatingGroupDeepCopyComponents[
                     index
                   ].some((component: ILayoutComponent | ILayoutGroup) => {
@@ -452,20 +455,40 @@ export function RepeatingGroupTable({
                   }
 
                   return (
-                    <React.Fragment key={index}>
-                      <AltinnTableRow
-                        valid={!rowHasErrors}
-                        key={`repeating-group-row-${index}`}
-                        className={cn(
+                    <TableRow
+                      //valid={!rowHasErrors}
+                      /*className={cn(
                           {
                             [classes.editingRow]: index === editIndex,
                           },
                           {
                             [classes.aboveEditingRow]: index === editIndex - 1,
                           },
-                        )}
-                      >
-                        {tableComponents.map((component: ILayoutComponent) => (
+                        )}*/
+                      key={`repeating-group-row-${index}`}
+                      value={index.toString()}
+                    >
+                      {components.map((component: ILayoutComponent) => {
+                        const childId =
+                          (component as any).baseComponentId || component.id;
+                        if (!tableHeaderComponents.includes(childId)) {
+                          return null;
+                        }
+
+                        return (
+                          <TableCell key={`${component.id} ${index}`}>
+                            {getFormDataForComponent(component, index)}
+                          </TableCell>
+                        );
+                      })}
+
+                      {components.map((component: ILayoutComponent) => {
+                        const childId =
+                          (component as any).baseComponentId || component.id;
+                        if (!tableHeaderComponents.includes(childId)) {
+                          return null;
+                        }
+                        return (
                           <TableCell key={`${component.id}-${index}`}>
                             <span>
                               {index !== editIndex
@@ -473,75 +496,84 @@ export function RepeatingGroupTable({
                                 : null}
                             </span>
                           </TableCell>
-                        ))}
+                        );
+                      })}
+                      <TableCell
+                        //align='left'
+                        //style={{ width: '110px', padding: 0 }}
+                        key={`delete-${index}`}
+                      >
+                        <IconButton
+                          className={cn(classes.tableEditButton, {
+                            [classes.editButtonActivated]: editIndex === index,
+                          })}
+                          onClick={() => handleEditClick(index)}
+                          aria-label={`${editButtonText}-${firstCellData}`}
+                        >
+                          <i
+                            className={
+                              rowHasErrors
+                                ? `ai ai-circle-exclamation a-icon ${classes.errorIcon} ${classes.editIcon}`
+                                : `fa fa-edit ${classes.editIcon}`
+                            }
+                          />
+                          {editButtonText}
+                        </IconButton>
+                      </TableCell>
+                      {!hideDeleteButton && (
                         <TableCell
-                          align='right'
-                          style={{
-                            width: '150px',
-                            padding: 0,
-                            paddingRight: '10px',
-                          }}
-                          key={`edit-${index}`}
+                          //align='center'
+                          //style={{ width: '80px', padding: 0 }}
+                          key={`delete-${index}`}
                         >
                           <IconButton
-                            className={cn(classes.tableEditButton, {
-                              [classes.editButtonActivated]:
-                                editIndex === index,
-                            })}
-                            onClick={() => handleEditClick(index)}
-                            aria-label={`${editButtonText}-${firstCellData}`}
+                            className={classes.deleteButton}
+                            disabled={deleting}
+                            onClick={removeClicked(index)}
+                            aria-label={`${deleteButtonText}-${firstCellData}`}
                           >
-                            <i
-                              className={
-                                rowHasErrors
-                                  ? `ai ai-circle-exclamation a-icon ${classes.errorIcon} ${classes.editIcon}`
-                                  : `fa fa-edit ${classes.editIcon}`
-                              }
-                            />
-                            {editButtonText}
+                            <i className='ai ai-trash' />
+                            {deleteButtonText}
                           </IconButton>
                         </TableCell>
-                        {!hideDeleteButton && (
-                          <TableCell
-                            align='center'
-                            style={{ width: '80px', padding: 0 }}
-                            key={`delete-${index}`}
-                          >
-                            <IconButton
-                              className={classes.deleteButton}
-                              disabled={deleting}
-                              onClick={removeClicked(index)}
-                              aria-label={`${deleteButtonText}-${firstCellData}`}
-                            >
-                              <i className='ai ai-trash' />
-                              {deleteButtonText}
-                            </IconButton>
-                          </TableCell>
-                        )}
-                      </AltinnTableRow>
+                      )}
+
                       {editIndex === index && (
                         <TableRow
                           key={`edit-container-${index}`}
-                          className={classes.editContainerRow}
+                          //lassName={classes.editContainerRow}
                         >
                           <TableCell
-                            style={{ padding: 0, borderBottom: 0 }}
+                            //style={{ padding: 0, borderBottom: 0 }}
                             colSpan={
                               hideDeleteButton
-                                ? tableComponents.length + 1
-                                : tableComponents.length + 2
+                                ? componentTitles.length + 1
+                                : componentTitles.length + 2
                             }
                           >
                             {renderRepeatingGroupsEditContainer()}
                           </TableCell>
                         </TableRow>
                       )}
-                    </React.Fragment>
+                    </TableRow>
                   );
-                },
-              )}
-          </AltinnTableBody>
-        </AltinnTable>
+                })}
+          </TableBody>
+          <TableFooter>
+            <TableRow>
+              <TableCell colSpan={5}>
+                <Pagination
+                  numberOfRows={7}
+                  rowsPerPageOptions={container.pagination.alternatives}
+                  rowsPerPage={rowsPerPage}
+                  onRowsPerPageChange={handleChangeRowsPerPage}
+                  currentPage={page}
+                  setCurrentPage={setPage}
+                />
+              </TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
       )}
       {mobileView && (
         <AltinnMobileTable
@@ -556,16 +588,21 @@ export function RepeatingGroupTable({
                 ].some((component: ILayoutComponent | ILayoutGroup) => {
                   return childElementHasErrors(component, index);
                 });
-                const items: IMobileTableItem[] = tableComponents.map(
-                  (component: ILayoutComponent) => ({
-                    key: component.id,
-                    label: getTextResource(
-                      getTableTitle(component),
-                      textResources,
-                    ),
-                    value: getFormDataForComponent(component, index),
-                  }),
-                );
+                const items: IMobileTableItem[] = [];
+                components.forEach((component) => {
+                  const childId =
+                    (component as any).baseComponentId || component.id;
+                  if (tableHeaderComponents.includes(childId)) {
+                    items.push({
+                      key: component.id,
+                      label: getTextResource(
+                        component?.textResourceBindings?.title,
+                        textResources,
+                      ),
+                      value: getFormDataForComponent(component, index),
+                    });
+                  }
+                });
                 return (
                   <React.Fragment key={index}>
                     <AltinnMobileTableItem
